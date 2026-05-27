@@ -148,13 +148,7 @@ async def receive_log(request: Request):
 
     # 广播到所有 WebSocket 客户端
     msg = json.dumps({"type": "log", "text": text, "time": time_str}, ensure_ascii=False)
-    dead = set()
-    for ws in clients:
-        try:
-            await ws.send_text(msg)
-        except Exception:
-            dead.add(ws)
-    clients -= dead
+    await broadcast(msg)
 
     return {"ok": True}
 
@@ -169,15 +163,20 @@ async def receive_screenshot(request: Request):
 
     # 广播到所有 WebSocket 客户端
     msg = json.dumps({"type": "screenshot", "data": b64})
+    await broadcast(msg)
+
+    return {"ok": True}
+
+
+async def broadcast(msg: str):
+    """安全广播到所有客户端"""
     dead = set()
-    for ws in clients:
+    for ws in clients.copy():
         try:
             await ws.send_text(msg)
         except Exception:
             dead.add(ws)
-    clients -= dead
-
-    return {"ok": True}
+    clients.difference_update(dead)
 
 
 @app.get("/api/status")
